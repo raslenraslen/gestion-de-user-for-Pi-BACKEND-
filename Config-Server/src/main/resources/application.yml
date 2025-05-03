@@ -1,0 +1,28 @@
+public_ip: 26.223.72.183
+eureka_server: 26.223.72.183
+
+server:
+  port: 8888
+  address: 0.0.0.0
+
+spring:
+  profiles:
+    active: native
+  application:
+    name: config-server
+  cloud:
+    config:
+      server:
+        native:
+          search-locations: classpath:/configs
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${eureka_server}:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    hostname: ${public_ip}
+    prefer-ip-address: false
+    instance-id: ${public_ip}:${server.port}

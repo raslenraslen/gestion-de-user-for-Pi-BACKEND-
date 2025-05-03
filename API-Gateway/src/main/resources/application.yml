@@ -1,0 +1,15 @@
+eureka_server: 26.223.72.183
+spring:
+  application:
+    name: API-Gateway
+  cloud:
+    config:
+      discovery:
+        enabled: true
+        service-id: CONFIG-SERVER
+  config:
+    import: "optional:configserver:"
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${eureka_server}:8761/eureka/

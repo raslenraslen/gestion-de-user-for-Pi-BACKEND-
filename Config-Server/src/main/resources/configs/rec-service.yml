@@ -1,0 +1,25 @@
+public_ip: 26.52.11.127
+database:
+  host: localhost
+  port: 3306
+  name: reclamation
+server:
+  port: 8090
+
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/reclamation
+    username: root
+    password: root
+  jpa:
+    database-platform: org.hibernate.dialect.MySQLDialect
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+eureka:
+  instance:
+    hostname: ${public_ip}
+    prefer-ip-address: false
+    instance-id: ${public_ip}:${server.port}

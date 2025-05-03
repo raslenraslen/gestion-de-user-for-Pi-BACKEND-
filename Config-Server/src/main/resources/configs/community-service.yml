@@ -1,0 +1,28 @@
+public_ip: 26.146.178.181
+database:
+  host: localhost
+  port: 3306
+  name: communitydb
+server:
+  port: 8092
+
+spring:
+  application:
+    name: community-service
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${database.host}:${database.port}/${database.name}
+    username: root
+    password: root
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: update
+    database: mysql
+    database-platform: org.hibernate.dialect.MySQL8Dialect
+
+eureka:
+  instance:
+    hostname: ${public_ip}
+    prefer-ip-address: false
+    instance-id: ${public_ip}:${server.port}

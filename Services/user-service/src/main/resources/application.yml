@@ -1,0 +1,68 @@
+spring:
+  application:
+    name: user-service
+  config:
+    import: optional:configserver:http://localhost:8888
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/user
+    username: root
+    password: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    database-platform: org.hibernate.dialect.MySQLDialect
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: raslenm39@gmail.com
+    password: lkymptuqaadxngrj
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+  thymeleaf:
+    prefix: classpath:/templates/
+    suffix: .html
+    mode: HTML5
+
+  # Serveur pour les fichiers statiques
+  web:
+    resources:
+      static-locations: "file:/C:/Users/user/Desktop/Pi dev/projet dev gamemax/gestion-de-user-for-Pi-BACKEND--main/Services/user-service/uploads/"
+
+logging:
+  level:
+    org.springframework: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    com.gamax.userservice: DEBUG
+
+security:
+  jwt:
+    secret-key: 3cfa76ef14937c1c0ea519f8fc057a80fcd04a7420f8e8bcd0a7567c272e007b
+    expiration-time: 3600000  # 1h in milliseconds
+
+server:
+  error:
+    whitelabel:
+      enabled: false
+    path: /error
+
+  port: 8080
+
+
+ai:
+  service:
+    api:
+      key: AIzaSyD2ZNSI6TVI53L7IW16kvWggWelyFucQ9w
+      url: https://generativelanguage.googleapis.com/v1

@@ -1,0 +1,73 @@
+public_ip: 26.223.72.183  #TODO: change ip
+angular_server:
+  hostname: localhost
+  port: 4200
+server:
+  port: 8080
+
+spring:
+  application:
+    name: API-Gateway
+
+  cloud:
+    gateway:
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins: "http://${angular_server.hostname}:${angular_server.port}"
+            allowedMethods: "*"
+            allowedHeaders: "*"
+            allowCredentials: true
+
+      routes:
+
+        - id: user-service
+          uri: lb://USER-SERVICE
+          predicates:
+            - Path=/api/user/**,/api/auth/**,/api/ai/** ,/api/useruploads/**,/api/userupload/**
+
+        - id: static-assets
+          uri: lb://COMMUNITY-SERVICE
+          predicates:
+            - Path=/uploads/**
+          filters:
+            - RewritePath=/uploads/(?<segment>.*), /uploads/$\{segment}  # Réécriture du chemin
+
+        - id: community-service
+          uri: lb://COMMUNITY-SERVICE
+          predicates:
+            - Path=/api/community/**
+
+        - id: game-service
+          uri: lb://GAME-SERVICE
+          predicates:
+            - Path=/api/games/**,/api/reviews/**,/api/uploads/gameImages/**
+
+
+        - id: cloud-service
+          uri: lb://CLOUD-SERVICE
+          predicates:
+            - Path=/api/instance/**,/api/flavor/**,/api/glance/**,/api/network/**,/api/cinder/**
+
+        - id: marketplace-service
+          uri: lb://MARKETPLACE-SERVICE
+          predicates:
+            - Path=/api/articles/**,/api/coupons/**
+
+        - id: rec-service
+          uri: lb://REC-SERVICE
+          predicates:
+            - Path=/api/reclamation/**
+
+        - id: packs-service
+          uri: lb://PACKS-SERVICE
+          predicates:
+            - Path=/api/packs/**,/api/subscriptions/**,/api/generate-pack/**,/api/packuploads/packImages/**
+eureka:
+  instance:
+    hostname: ${public_ip}
+    prefer-ip-address: false
+    instance-id: ${public_ip}:${server.port}
+#logging:
+#  level:
+#    org.springframework.cloud.gateway: DEBUG
