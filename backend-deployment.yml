@@ -1,0 +1,156 @@
+# Fichier: user-service-deployment.yml
+
+# --- Deployment de l'application Spring Backend (user-service) ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service-deployment # Nom du déploiement pour ton backend user-service
+  labels:
+    app: user-service # Label pour identifier les pods de ce service
+
+spec:
+  replicas: 2 # Nombre d'instances de ton backend user-service (adapte si besoin)
+  selector:
+    matchLabels:
+      app: user-service # Le Deployment gérera les pods avec ce label
+  strategy:
+    type: RollingUpdate # Stratégie de mise à jour
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  template: # Le template pour créer les pods du backend
+    metadata:
+      labels:
+        app: user-service # Labels pour les pods créés (doit correspondre au sélecteur ci-dessus et au service)
+    spec:
+      containers:
+      - name: user-service-container # Nom du conteneur dans le pod
+        image: raslenmissaoui061/gamax-backend:latest # <--- TON IMAGE DOCKER USER-SERVICE
+        imagePullPolicy: IfNotPresent # Tire l'image si elle n'est pas déjà présente sur le nœud
+        ports:
+        - containerPort: 8080 # Le port sur lequel ton application Spring écoute dans le conteneur
+          protocol: TCP
+        env: # Variables d'environnement pour la configuration de Spring
+
+        # --- Configuration de la base de données (via Service K8s) ---
+        # Se connecte au service MySQL interne
+        - name: SPRING_DATASOURCE_URL
+          value: jdbc:mysql://mysql-service:3306/user # Nom du Service K8s de MySQL + port + nom de la base
+        - name: SPRING_DATASOURCE_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: mysql-credentials # Nom du Secret contenant les infos MySQL
+              key: username # Clé pour le nom d'utilisateur dans le Secret
+        - name: SPRING_DATASOURCE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-credentials # Nom du Secret
+              key: password # Clé pour le mot de passe dans le Secret
+        # spring.datasource.driver-class-name n'a généralement pas besoin d'être override par variable d'environnement
+
+        # --- Configuration Config Server (via Service K8s interne du pod groupé) ---
+        # Se connecte au Config Server via le service interne du pod groupé
+        - name: SPRING_CONFIG_IMPORT
+          value: optional:configserver:http://spring-cloud-internal-service:8888 # Nom du Service K8s interne pour Config Server + Port
+
+        # --- Configuration Eureka Client (via Service K8s interne du pod groupé) ---
+        # S'enregistre auprès d'Eureka via le service interne du pod groupé
+        - name: SPRING_APPLICATION_NAME # Nom de l'application pour Eureka
+          value: USER-SERVICE # <--- Le nom avec lequel il s'enregistre dans Eureka (DOIT CORRESPONDRE AU NOM UTILISÉ DANS LA GATEWAY - ex: lb://USER-SERVICE)
+        - name: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+          value: http://spring-cloud-internal-service:8761/eureka/ # Nom du Service K8s interne pour Eureka Server + Chemin
+
+        # Configuration de l'instance Eureka (comment l'instance se présente dans Eureka)
+        - name: EUREKA_INSTANCE_PREFER_IP_ADDRESS # Enregistre l'IP du pod plutôt que le hostname
+          value: "true"
+        # Optionnel: Utilise le nom de l'application et le hostname du pod comme ID d'instance dans Eureka
+        - name: EUREKA_INSTANCE_INSTANCE_ID
+          value: ${SPRING_APPLICATION_NAME}-${HOSTNAME} # Ex: USER-SERVICE-user-service-deployment-abcdefg-hijkl
+
+        # --- Autres variables d'environnement (via Secrets si sensibles) ---
+        # Exemple pour JWT Secret Key (récupéré d'un Secret)
+        - name: SECURITY_JWT_SECRET_KEY # Correspond à security.jwt.secret-key
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets # Nom d'un Secret contenant d'autres secrets de l'application
+              key: jwt-secret-key # Clé pour le secret JWT dans ce Secret
+
+        # Exemple pour la clé API AI (récupéré d'un Secret)
+        - name: AI_SERVICE_API_KEY # Correspond à ai.service.api.key
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: ai-api-key
+
+        # Exemple pour l'identifiant et le mot de passe email (mot de passe via Secret)
+        - name: MAIL_USERNAME # Correspond à mail.username
+          value: raslenm39@gmail.com # L'identifiant peut être en clair si non sensible
+        - name: MAIL_PASSWORD # Correspond à mail.password
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: mail-password # Clé pour le mot de passe email dans ce Secret
+
+        # --- Configuration des fichiers statiques (uploads) ---
+        # Ceci est un exemple. Adapte le chemin si tu utilises un PersistentVolume.
+        # Si tu montes un PV au chemin /app/uploads DANS le conteneur
+        - name: SPRING_WEB_RESOURCES_STATIC_LOCATIONS # Correspond à web.resources.static-locations
+          value: "file:/app/uploads/" # Chemin DANS LE CONTENEUR où le PV sera monté
+        # Pour que cela fonctionne, tu DOIS ajouter un volume et un volumeMounts
+        # Ajoute ceci sous la section 'env' :
+        volumeMounts:
+        - name: user-service-uploads-storage # Nom du volume
+          mountPath: /app/uploads # Chemin où le volume est monté dans le conteneur
+
+        # --- Ressources (Recommandé pour la gestion des ressources du cluster) ---
+        resources:
+          requests:
+            memory: "512Mi" # Demande 512 Mo de mémoire
+            cpu: "500m"    # Demande 0.5 CPU (500 milliCPU)
+          limits:
+            memory: "1024Mi" # Limite la mémoire à 1024 Mo (1 GiB)
+            cpu: "1000m"   # Limite le CPU à 1 CPU
+
+        # --- Sondes de santé (Recommandé pour la robustesse) ---
+        # Indique à Kubernetes si le conteneur est sain et prêt à recevoir du trafic
+        # Assure-toi que Spring Boot Actuator est activé et que les endpoints sont accessibles sur le port 8080
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness # Chemin de la sonde de readiness (ajuste si différent)
+            port: 8080
+          initialDelaySeconds: 15 # Attends 15s avant la première vérification
+          periodSeconds: 10 # Vérifie toutes les 10s
+          failureThreshold: 3 # 3 échecs consécutifs marquent comme non prêt
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness # Chemin de la sonde de liveness (ajuste si différent)
+            port: 8080
+          initialDelaySeconds: 60 # Attends 60s avant la première vérification
+          periodSeconds: 15 # Vérifie toutes les 15s
+          failureThreshold: 3 # 3 échecs consécutifs marquent comme en échec (entraîne le redémarrage du pod)
+
+      # --- Volumes pour le PersistentVolumeClaim (si tu gères les uploads) ---
+      # Ajoute ceci sous la section 'containers' (au même niveau que 'containers')
+      volumes:
+      - name: user-service-uploads-storage # Nom du volume (référencé dans volumeMounts)
+        persistentVolumeClaim: # Lie à un PersistentVolumeClaim
+          claimName: user-service-uploads-pvc # <--- Nom du PVC pour les uploads (à créer séparément)
+
+# --- Service de l'application Spring Backend (user-service) ---
+# Ce service est utilisé par la Gateway (ou d'autres microservices) pour communiquer avec user-service en interne
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-service # <--- NOM DU SERVICE K8s : DOIT CORRESPONDRE AU NOM UTILISÉ PAR LA GATEWAY (lb://USER-SERVICE) ET LE NOM ENREGISTRÉ DANS EUREKA (SPRING_APPLICATION_NAME)
+  labels:
+    app: user-service # Label pour identifier les pods ciblés par ce service
+
+spec:
+  selector:
+    app: user-service # Ce service cible les pods avec le label app: user-service (ceux du Deployment ci-dessus)
+  ports:
+  - protocol: TCP
+    port: 8080 # Port du Service (port interne dans le cluster, utilisé par la Gateway)
+    targetPort: 8080 # Port sur le conteneur (le port de l'application Spring)
+  type: ClusterIP # Accessible uniquement à l'intérieur du cluster
